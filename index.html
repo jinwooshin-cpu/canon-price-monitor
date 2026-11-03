@@ -49,6 +49,7 @@
   tr.grp td { border-bottom-color: var(--line); }
   button.tog { font: inherit; font-weight: 600; background: none; border: 0; padding: 0; color: var(--fg); cursor: pointer; text-align: left; white-space: nowrap; }
   button.tog:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  a.ext { font-size: 12px; margin-left: 8px; white-space: nowrap; }
   tr.more td { background: color-mix(in srgb, var(--fg) 3%, transparent); }
   #err { color: var(--bad); }
 </style>
@@ -88,7 +89,7 @@
   <section class="card" id="malls">
     <div>
       <h2>판매처별 가격</h2>
-      <p class="note">모델별로 가장 최근 회차에서 읽은 가격 중 낮은 3개입니다. 모델을 누르면 펼쳐집니다. 가격비교 묶음은 등록된 판매처 중 최저가 하나로 표시됩니다.</p>
+      <p class="note">모델별로 가장 최근 회차에서 읽은 가격 중 낮은 3개입니다. 모델을 누르면 펼쳐지고, "네이버 ↗"를 누르면 네이버쇼핑 가격비교 페이지가 열립니다. 가격비교 묶음은 등록된 판매처 중 최저가 하나로 표시됩니다.</p>
     </div>
     <div class="scroll">
       <table>
@@ -202,6 +203,8 @@
       var g = groups[r.model] || (groups[r.model] = []);
       if (g.length < 3) g.push(r);
     });
+    var mu = {};
+    models.forEach(function (m) { mu[m.model] = m.url; });
     var mb = $('malls_body'); mb.replaceChildren();
     Object.keys(groups).sort().forEach(function (model) {
       var g = groups[model], open = !!expanded[model], more = [];
@@ -218,7 +221,14 @@
             b.setAttribute('aria-expanded', String(!!expanded[model]));
             b.textContent = (expanded[model] ? '▾ ' : '▸ ') + model + (g.length > 1 ? ' (' + g.length + ')' : '');
           });
-          td.appendChild(b); tr.appendChild(td);
+          td.appendChild(b);
+          if (mu[model] && /^https:\/\/search\.shopping\.naver\.com\//.test(mu[model])) {
+            var ext = document.createElement('a');
+            ext.className = 'ext'; ext.href = mu[model]; ext.target = '_blank'; ext.rel = 'noopener noreferrer';
+            ext.title = '네이버쇼핑 가격비교 페이지'; ext.textContent = '네이버 ↗';
+            td.appendChild(ext);
+          }
+          tr.appendChild(td);
         } else {
           tr.className = 'more' + (open ? '' : ' off');
           more.push(tr);
