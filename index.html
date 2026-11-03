@@ -146,17 +146,18 @@
       var status = cur.some(function (r) { return r.flag === CHECK; }) ? CHECK : (c && c.price < m.ref_price ? '노출가 미만' : '정상');
       return {
         model: m.model, collected_at: at,
-        price: c ? c.price : null, mall: c ? c.mall : null,
+        price: c ? c.price : null, mall: c ? c.mall : null, link: c ? c.link : null,
         change: c && o ? c.price - o.price : null,
         ref_price: m.ref_price, gap: c ? c.price - m.ref_price : null, status: status
       };
     });
   }
 
-  function cell(tr, text, cls, href) {
+  function cell(tr, text, cls, href, any) {
     var td = document.createElement('td');
     if (cls) td.className = cls;
-    if (href && /^https:\/\/search\.shopping\.naver\.com\/(catalog|product)\//.test(href)) {
+    var ok = any ? /^https:\/\/search\.shopping\.naver\.com\//.test(href || '') : /^https:\/\/search\.shopping\.naver\.com\/(catalog|product)\//.test(href || '');
+    if (href && ok) {
       var a = document.createElement('a');
       a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = text;
       td.appendChild(a);
@@ -179,7 +180,7 @@
     var tb = $('latest_body'); tb.replaceChildren();
     latest.forEach(function (r) {
       var tr = document.createElement('tr');
-      cell(tr, r.model); cell(tr, money(r.price), 'num'); cell(tr, r.mall || '—');
+      cell(tr, r.model); cell(tr, money(r.price), 'num', r.link, true); cell(tr, r.mall || '—');
       cell(tr, signed(r.change), 'num'); cell(tr, money(r.ref_price), 'num'); cell(tr, signed(r.gap), 'num');
       cell(tr, r.status, statusCls(r.status));
       tb.appendChild(tr);
@@ -194,7 +195,7 @@
       var tr = document.createElement('tr');
       cell(tr, r.model); cell(tr, String(r.rank), 'num'); cell(tr, r.mall || '—');
       cell(tr, r.name || '—', 'name', r.link);
-      cell(tr, money(r.price), 'num'); cell(tr, signed(r.price - r.ref_price), 'num');
+      cell(tr, money(r.price), 'num', r.link, true); cell(tr, signed(r.price - r.ref_price), 'num');
       cell(tr, r.flag || '—', statusCls(r.flag));
       mb.appendChild(tr);
     });
