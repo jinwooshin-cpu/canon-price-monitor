@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>캐논 프린터 가격 모니터</title>
+<meta name="description" content="네이버쇼핑 검색 결과 상위 5곳 기준 캐논 프린터 10종 가격 기록">
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --fg: #1d1f23; --muted: #6a6f78; --line: #e3e4e1;
+    --accent: #2f5fd0; --ref: #8a8f98; --grid: #ececea; --bad: #c4261d; --warn: #a15c00;
+    --sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Segoe UI", sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --panel: #1c1f24; --fg: #e8e9ec; --muted: #9aa0aa; --line: #2c3037;
+      --accent: #7ea2f5; --ref: #7b818b; --grid: #262a30; --bad: #ff7b72; --warn: #e3b341;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+  .wrap { max-width: 72rem; margin: 0 auto; padding: 24px max(16px, env(safe-area-inset-left, 0px)) 48px max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px; }
+  h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+  h2 { margin: 0; font-size: 16px; font-weight: 600; }
+  .lead { margin: 6px 0 0; color: var(--muted); }
+  .lead b { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+  .note { margin: 0; color: var(--muted); font-size: 12px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 6px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: 0; }
+  .num { text-align: right; }
+  td.name { max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  td.below { color: var(--bad); }
+  td.check { color: var(--warn); }
+  td.muted { color: var(--muted); }
+  a { color: var(--accent); }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+  select { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+  .chart { position: relative; min-height: 260px; }
+  .chart svg { display: block; }
+  .chart text { fill: var(--muted); font-size: 11px; }
+  .tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.15); padding: 4px 10px; font-size: 12px; white-space: nowrap; }
+  .off { display: none; }
+  #err { color: var(--bad); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>캐논 프린터 가격 모니터</h1>
+    <p class="lead">네이버쇼핑 검색 결과 상위 5곳 기준입니다. 마지막 수집 <b id="last_at">—</b>, 수집된 모델 <b id="covered">—</b>종, 노출가 미만 <b id="below">—</b>종, 확인 필요 <b id="checking">—</b>건.</p>
+    <p class="note" id="err"></p>
+  </header>
+
+  <section class="card" id="now">
+    <div>
+      <h2>모델별 현재 최저가</h2>
+      <p class="note">가장 최근 수집 회차에서 상위 5곳 중 가장 낮은 가격입니다. 직전 대비는 바로 앞 회차의 최저가와 비교합니다.</p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>모델</th><th class="num">최저가(원)</th><th>판매처</th><th class="num">직전 대비(원)</th><th class="num">노출가(원)</th><th class="num">노출가 대비(원)</th><th>상태</th></tr></thead>
+        <tbody id="latest_body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card" id="trend">
+    <div class="row">
+      <div>
+        <h2>가격 추이</h2>
+        <p class="note">수집 회차마다 상위 5곳 중 최저가를 이었고, 점선은 노출가입니다.</p>
+      </div>
+      <select id="model_pick" aria-label="모델 선택"></select>
+    </div>
+    <div class="chart" id="trend_chart"></div>
+  </section>
+
+  <section class="card" id="malls">
+    <div>
+      <h2>판매처별 가격</h2>
+      <p class="note">모델별로 가장 최근 회차에서 읽은 상위 5곳입니다. 가격비교 묶음은 등록된 판매처 중 최저가 하나로 표시됩니다.</p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>모델</th><th class="num">순위</th><th>판매처</th><th>상품명</th><th class="num">가격(원)</th><th class="num">노출가 대비(원)</th><th>표시</th></tr></thead>
+        <tbody id="malls_body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card" id="checks">
+    <div>
+      <h2>확인 필요 회차</h2>
+      <p class="note">캡차나 접속 제한이 뜨거나 결과를 읽지 못한 회차입니다. 우회하지 않고 기록만 남깁니다.</p>
+    </div>
+    <p class="note off" id="checks_empty">확인 필요 회차가 없습니다.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>수집 시각</th><th>모델</th><th>내용</th></tr></thead>
+        <tbody id="checks_body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="note">노출가는 기준표의 무료배송 노출가입니다. 가격은 네이버쇼핑 화면에서 읽은 값이며 실제 결제가와 다를 수 있습니다.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+(function () {
+  var CHECK = '확인 필요';
+  var won = d3.format(',');
+  var signed = function (n) { return n == null ? '—' : (n > 0 ? '+' : n < 0 ? '−' : '') + won(Math.abs(n)); };
+  var money = function (v) { return v == null ? '—' : won(v); };
+  var when = function (s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})/.exec(s || '');
+    return m ? (+m[2]) + '월 ' + (+m[3]) + '일 ' + m[4] : '—';
+  };
+  var $ = function (id) { return document.getElementById(id); };
+  var prices = [], models = [], state = { model: null };
+
+  function minOf(rs) {
+    var best = null;
+    rs.forEach(function (r) {
+      if (r.flag === CHECK || r.price == null) return;
+      if (best === null || r.price < best.price) best = r;
+    });
+    return best;
+  }
+
+  function computeLatest() {
+    return models.map(function (m) {
+      var rows = prices.filter(function (r) { return r.model === m.model; });
+      var times = Array.from(new Set(rows.map(function (r) { return r.collected_at; }))).sort();
+      if (!times.length) return { model: m.model, collected_at: null, price: null, mall: null, change: null, ref_price: m.ref_price, gap: null, status: '수집 전' };
+      var at = times[times.length - 1];
+      var cur = rows.filter(function (r) { return r.collected_at === at; });
+      var old = times.length > 1 ? rows.filter(function (r) { return r.collected_at === times[times.length - 2]; }) : [];
+      var c = minOf(cur), o = minOf(old);
+      var status = cur.some(function (r) { return r.flag === CHECK; }) ? CHECK : (c && c.price < m.ref_price ? '노출가 미만' : '정상');
+      return {
+        model: m.model, collected_at: at,
+        price: c ? c.price : null, mall: c ? c.mall : null,
+        change: c && o ? c.price - o.price : null,
+        ref_price: m.ref_price, gap: c ? c.price - m.ref_price : null, status: status
+      };
+    });
+  }
+
+  function cell(tr, text, cls, href) {
+    var td = document.createElement('td');
+    if (cls) td.className = cls;
+    if (href && /^https:\/\/search\.shopping\.naver\.com\/(catalog|product)\//.test(href)) {
+      var a = document.createElement('a');
+      a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = text;
+      td.appendChild(a);
+    } else {
+      td.textContent = text;
+    }
+    tr.appendChild(td);
+  }
+  var statusCls = function (s) { return s === '노출가 미만' ? 'below' : s === CHECK ? 'check' : s === '수집 전' ? 'muted' : ''; };
+
+  function render() {
+    var latest = computeLatest();
+    var seen = latest.filter(function (r) { return r.collected_at; });
+    var times = seen.map(function (r) { return r.collected_at; }).sort();
+    $('last_at').textContent = times.length ? when(times[times.length - 1]) : '—';
+    $('covered').textContent = seen.length;
+    $('below').textContent = latest.filter(function (r) { return r.status === '노출가 미만'; }).length;
+    $('checking').textContent = prices.filter(function (r) { return r.flag === CHECK; }).length;
+
+    var tb = $('latest_body'); tb.replaceChildren();
+    latest.forEach(function (r) {
+      var tr = document.createElement('tr');
+      cell(tr, r.model); cell(tr, money(r.price), 'num'); cell(tr, r.mall || '—');
+      cell(tr, signed(r.change), 'num'); cell(tr, money(r.ref_price), 'num'); cell(tr, signed(r.gap), 'num');
+      cell(tr, r.status, statusCls(r.status));
+      tb.appendChild(tr);
+    });
+
+    var at = {};
+    latest.forEach(function (l) { if (l.collected_at) at[l.model] = l.collected_at; });
+    var malls = prices.filter(function (r) { return at[r.model] === r.collected_at && r.flag !== CHECK; })
+      .sort(function (a, b) { return a.model < b.model ? -1 : a.model > b.model ? 1 : a.rank - b.rank; });
+    var mb = $('malls_body'); mb.replaceChildren();
+    malls.forEach(function (r) {
+      var tr = document.createElement('tr');
+      cell(tr, r.model); cell(tr, String(r.rank), 'num'); cell(tr, r.mall || '—');
+      cell(tr, r.name || '—', 'name', r.link);
+      cell(tr, money(r.price), 'num'); cell(tr, signed(r.price - r.ref_price), 'num');
+      cell(tr, r.flag || '—', statusCls(r.flag));
+      mb.appendChild(tr);
+    });
+
+    var checks = prices.filter(function (r) { return r.flag === CHECK; })
+      .sort(function (a, b) { return a.collected_at < b.collected_at ? 1 : a.collected_at > b.collected_at ? -1 : 0; });
+    var cb = $('checks_body'); cb.replaceChildren();
+    checks.forEach(function (r) {
+      var tr = document.createElement('tr');
+      cell(tr, when(r.collected_at)); cell(tr, r.model); cell(tr, '가격을 읽지 못해 직접 확인이 필요합니다');
+      cb.appendChild(tr);
+    });
+    $('checks_empty').classList.toggle('off', checks.length !== 0);
+
+    var sel = $('model_pick');
+    if (!sel.options.length) {
+      models.forEach(function (m) { sel.appendChild(new Option(m.model)); });
+      sel.addEventListener('change', function () { state.model = sel.value; drawChart(); });
+    }
+    if (!state.model) {
+      var withData = prices.filter(function (r) { return r.flag !== CHECK && r.price != null; });
+      state.model = withData.length ? withData[0].model : (models[0] && models[0].model);
+    }
+    sel.value = state.model;
+    drawChart();
+  }
+
+  function drawChart() {
+    var el = $('trend_chart'); el.replaceChildren();
+    var W = el.clientWidth; if (!W) return;
+    var best = {};
+    prices.forEach(function (r) {
+      if (r.model !== state.model || r.flag === CHECK || r.price == null) return;
+      if (!best[r.collected_at] || r.price < best[r.collected_at].price) best[r.collected_at] = r;
+    });
+    var pts = Object.keys(best).sort().map(function (t) {
+      return { t: new Date(t.replace(' ', 'T') + '+09:00'), p: best[t].price, ref: best[t].ref_price };
+    });
+    if (!pts.length) {
+      var p = document.createElement('p'); p.className = 'note'; p.textContent = '이 모델은 아직 수집된 가격이 없습니다.';
+      el.appendChild(p); return;
+    }
+    var H = 260, m = { t: 16, r: 100, b: 32, l: 64 }, ref = pts[0].ref;
+    var vals = pts.map(function (d) { return d.p; }).concat(ref);
+    var lo = d3.min(vals), hi = d3.max(vals), pad = Math.max(500, (hi - lo) * 0.2);
+    var y = d3.scaleLinear([lo - pad, hi + pad], [H - m.b, m.t]).nice();
+    var t0 = d3.min(pts, function (d) { return d.t; }), t1 = d3.max(pts, function (d) { return d.t; });
+    var dom = +t0 === +t1 ? [new Date(+t0 - 12 * 36e5), new Date(+t1 + 12 * 36e5)] : [t0, t1];
+    var x = d3.scaleTime(dom, [m.l, W - m.r]);
+    var svg = d3.create('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('height', H);
+    y.ticks(4).forEach(function (v) {
+      svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(v)).attr('y2', y(v)).attr('stroke', 'var(--grid)');
+      svg.append('text').attr('x', m.l - 8).attr('y', y(v) + 4).attr('text-anchor', 'end').text(won(v));
+    });
+    var fmtT = d3.timeFormat('%-m/%-d %H:%M');
+    var ticks = +t0 === +t1 ? [t0] : x.ticks(Math.max(2, Math.floor((W - m.l - m.r) / 120)));
+    ticks.forEach(function (tk) { svg.append('text').attr('x', x(tk)).attr('y', H - 10).attr('text-anchor', 'middle').text(fmtT(tk)); });
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(ref)).attr('y2', y(ref)).attr('stroke', 'var(--ref)').attr('stroke-dasharray', '4 4');
+    var last = pts[pts.length - 1], refAbove = last.p <= ref;
+    svg.append('text').attr('x', W - m.r + 8).attr('y', y(ref) + (refAbove ? -6 : 14)).text('노출가 ' + won(ref));
+    svg.append('path').datum(pts).attr('fill', 'none').attr('stroke', 'var(--accent)').attr('stroke-width', 2)
+      .attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round')
+      .attr('d', d3.line().x(function (d) { return x(d.t); }).y(function (d) { return y(d.p); }));
+    svg.append('text').attr('x', W - m.r + 8).attr('y', y(last.p) + (refAbove ? 14 : -6)).style('fill', 'var(--fg)').text(won(last.p));
+    var tip = document.createElement('div'); tip.className = 'tip'; tip.style.display = 'none';
+    svg.selectAll('circle').data(pts).join('circle')
+      .attr('cx', function (d) { return x(d.t); }).attr('cy', function (d) { return y(d.p); }).attr('r', 4).attr('fill', 'var(--accent)')
+      .on('mouseenter', function (event, d) {
+        tip.textContent = fmtT(d.t) + '  ' + won(d.p) + '원'; tip.style.display = 'block';
+        tip.style.left = Math.min(Math.max(x(d.t) - tip.offsetWidth / 2, 0), W - tip.offsetWidth) + 'px';
+        tip.style.top = Math.max(y(d.p) - 36, 0) + 'px';
+      })
+      .on('mouseleave', function () { tip.style.display = 'none'; });
+    el.appendChild(svg.node()); el.appendChild(tip);
+  }
+
+  Promise.all([
+    fetch('prices.json?v=' + Date.now()).then(function (r) { if (!r.ok) throw new Error('prices'); return r.json(); }),
+    fetch('models.json?v=' + Date.now()).then(function (r) { if (!r.ok) throw new Error('models'); return r.json(); })
+  ]).then(function (res) {
+    prices = res[0]; models = res[1]; render();
+    var timer; window.addEventListener('resize', function () { clearTimeout(timer); timer = setTimeout(drawChart, 150); });
+  }).catch(function () {
+    $('err').textContent = '데이터를 불러오지 못했습니다. 잠시 후 다시 열어 주세요.';
+  });
+})();
+</script>
+</body>
+</html>
