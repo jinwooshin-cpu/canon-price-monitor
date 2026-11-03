@@ -46,6 +46,10 @@
   .chart text { fill: var(--muted); font-size: 11px; }
   .tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.15); padding: 4px 10px; font-size: 12px; white-space: nowrap; }
   .off { display: none; }
+  tr.grp td { border-bottom-color: var(--line); }
+  button.tog { font: inherit; font-weight: 600; background: none; border: 0; padding: 0; color: var(--fg); cursor: pointer; text-align: left; white-space: nowrap; }
+  button.tog:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  tr.more td { background: color-mix(in srgb, var(--fg) 3%, transparent); }
   #err { color: var(--bad); }
 </style>
 </head>
@@ -84,11 +88,11 @@
   <section class="card" id="malls">
     <div>
       <h2>판매처별 가격</h2>
-      <p class="note">모델별로 가장 최근 회차에서 읽은 상위 5곳입니다. 가격비교 묶음은 등록된 판매처 중 최저가 하나로 표시됩니다.</p>
+      <p class="note">모델별로 가장 최근 회차에서 읽은 가격 중 낮은 3개입니다. 모델을 누르면 펼쳐집니다. 가격비교 묶음은 등록된 판매처 중 최저가 하나로 표시됩니다.</p>
     </div>
     <div class="scroll">
       <table>
-        <thead><tr><th>모델</th><th class="num">순위</th><th>판매처</th><th>상품명</th><th class="num">가격(원)</th><th class="num">노출가 대비(원)</th><th>표시</th></tr></thead>
+        <thead><tr><th>모델</th><th class="num">가격순</th><th>판매처</th><th>상품명</th><th class="num">가격(원)</th><th class="num">노출가 대비(원)</th><th>표시</th></tr></thead>
         <tbody id="malls_body"></tbody>
       </table>
     </div>
@@ -123,7 +127,7 @@
     return m ? (+m[2]) + '월 ' + (+m[3]) + '일 ' + m[4] : '—';
   };
   var $ = function (id) { return document.getElementById(id); };
-  var prices = [], models = [], state = { model: null };
+  var prices = [], models = [], state = { model: null }, expanded = {};
 
   function minOf(rs) {
     var best = null;
@@ -188,16 +192,44 @@
 
     var at = {};
     latest.forEach(function (l) { if (l.collected_at) at[l.model] = l.collected_at; });
-    var malls = prices.filter(function (r) { return at[r.model] === r.collected_at && r.flag !== CHECK; })
-      .sort(function (a, b) { return a.model < b.model ? -1 : a.model > b.model ? 1 : a.rank - b.rank; });
-    var mb = $('malls_body'); mb.replaceChildren();
+    var malls = prices.filter(function (r) { return at[r.model] === r.collected_at && r.flag !== CHECK && r.price != null; })
+      .sort(function (a, b) { return a.model < b.model ? -1 : a.model > b.model ? 1 : a.price - b.price || a.rank - b.rank; });
+    var groups = {}, seenKey = {};
     malls.forEach(function (r) {
-      var tr = document.createElement('tr');
-      cell(tr, r.model); cell(tr, String(r.rank), 'num'); cell(tr, r.mall || '—');
-      cell(tr, r.name || '—', 'name', r.link);
-      cell(tr, money(r.price), 'num', r.link, true); cell(tr, signed(r.price - r.ref_price), 'num');
-      cell(tr, r.flag || '—', statusCls(r.flag));
-      mb.appendChild(tr);
+      var k = r.model + '|' + r.mall + '|' + r.price;
+      if (seenKey[k]) return;
+      seenKey[k] = true;
+      var g = groups[r.model] || (groups[r.model] = []);
+      if (g.length < 3) g.push(r);
+    });
+    var mb = $('malls_body'); mb.replaceChildren();
+    Object.keys(groups).sort().forEach(function (model) {
+      var g = groups[model], open = !!expanded[model], more = [];
+      g.forEach(function (r, i) {
+        var tr = document.createElement('tr');
+        if (i === 0) {
+          tr.className = 'grp';
+          var td = document.createElement('td'), b = document.createElement('button');
+          b.type = 'button'; b.className = 'tog'; b.setAttribute('aria-expanded', String(open));
+          b.textContent = (open ? '▾ ' : '▸ ') + model + (g.length > 1 ? ' (' + g.length + ')' : '');
+          b.addEventListener('click', function () {
+            expanded[model] = !expanded[model];
+            more.forEach(function (m) { m.classList.toggle('off', !expanded[model]); });
+            b.setAttribute('aria-expanded', String(!!expanded[model]));
+            b.textContent = (expanded[model] ? '▾ ' : '▸ ') + model + (g.length > 1 ? ' (' + g.length + ')' : '');
+          });
+          td.appendChild(b); tr.appendChild(td);
+        } else {
+          tr.className = 'more' + (open ? '' : ' off');
+          more.push(tr);
+          cell(tr, '');
+        }
+        cell(tr, String(i + 1), 'num'); cell(tr, r.mall || '—');
+        cell(tr, r.name || '—', 'name', r.link);
+        cell(tr, money(r.price), 'num', r.link, true); cell(tr, signed(r.price - r.ref_price), 'num');
+        cell(tr, r.flag || '—', statusCls(r.flag));
+        mb.appendChild(tr);
+      });
     });
 
     var checks = prices.filter(function (r) { return r.flag === CHECK; })
