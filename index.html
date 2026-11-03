@@ -79,7 +79,7 @@
   <section class="card" id="malls">
     <div>
       <h2>판매처별 가격</h2>
-      <p class="note">모델별로 가장 최근 회차에서 읽은 가격 중 낮은 3개입니다. 모델 옆 + 아이콘(또는 모델명)을 누르면 3개가 펼쳐지고, "네이버 ↗"를 누르면 네이버쇼핑 가격비교 페이지가 열립니다. 가격비교 묶음은 등록된 판매처 중 최저가 하나로 표시됩니다.</p>
+      <p class="note">모델별로 네이버 가격비교(원부) 판매처 리스트에서 읽은 가장 낮은 3곳입니다. 원부를 읽지 못한 모델은 검색 결과 기준입니다. 모델 옆 + 아이콘(또는 모델명)을 누르면 3개가 펼쳐지고, "네이버 ↗"를 누르면 네이버쇼핑 가격비교 페이지가 열립니다. </p>
     </div>
     <div class="scroll">
       <table>
@@ -117,7 +117,7 @@
     return m ? (+m[2]) + '월 ' + (+m[3]) + '일 ' + m[4] : '—';
   };
   var $ = function (id) { return document.getElementById(id); };
-  var prices = [], models = [], expanded = {};
+  var prices = [], models = [], sellers = [], expanded = {};
 
   function minOf(rs) {
     var best = null;
@@ -182,8 +182,14 @@
 
     var at = {};
     latest.forEach(function (l) { if (l.collected_at) at[l.model] = l.collected_at; });
-    var malls = prices.filter(function (r) { return at[r.model] === r.collected_at && r.flag !== CHECK && r.price != null; })
-      .sort(function (a, b) { return a.model < b.model ? -1 : a.model > b.model ? 1 : a.price - b.price || a.rank - b.rank; });
+    var srcAt = {};
+    sellers.forEach(function (r) { if (!srcAt[r.model] || r.collected_at > srcAt[r.model]) srcAt[r.model] = r.collected_at; });
+    var malls = sellers.filter(function (r) { return srcAt[r.model] === r.collected_at; }).map(function (r) { r.flag = r.price < r.ref_price ? '노출가 미만' : ''; r.src = 'catalog'; return r; });
+    prices.forEach(function (r) {
+      if (srcAt[r.model] || at[r.model] !== r.collected_at || r.flag === CHECK || r.price == null) return;
+      malls.push(r);
+    });
+    malls.sort(function (a, b) { return a.model < b.model ? -1 : a.model > b.model ? 1 : a.price - b.price || a.rank - b.rank; });
     var groups = {}, seenKey = {};
     malls.forEach(function (r) {
       var k = r.model + '|' + r.mall + '|' + r.price;
@@ -249,9 +255,10 @@
 
   Promise.all([
     fetch('prices.json?v=' + Date.now()).then(function (r) { if (!r.ok) throw new Error('prices'); return r.json(); }),
-    fetch('models.json?v=' + Date.now()).then(function (r) { if (!r.ok) throw new Error('models'); return r.json(); })
+    fetch('models.json?v=' + Date.now()).then(function (r) { if (!r.ok) throw new Error('models'); return r.json(); }),
+    fetch('sellers.json?v=' + Date.now()).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
   ]).then(function (res) {
-    prices = res[0]; models = res[1]; render();
+    prices = res[0]; models = res[1]; sellers = res[2] || []; render();
   }).catch(function () {
     $('err').textContent = '데이터를 불러오지 못했습니다. 잠시 후 다시 열어 주세요.';
   });
